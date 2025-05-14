@@ -17,6 +17,7 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.text_rank import TextRankSummarizer
 import nltk
+import magic
 
 nltk.download("punkt")
 nltk.download('punkt_tab')
@@ -37,65 +38,38 @@ class QtSignalLogHandler(logging.Handler, QObject):
         msg = self.format(record)
         self.log_signal.emit(msg)
 
-
 class AudioProcessor:
     def __init__(self):
-        self.model_small = whisper.load_model("small")
-        self.model_tiny = whisper.load_model("tiny")
+        self.model = whisper.load_model("small")
+        logging.info("Whisper model loaded successfully.")
+
+    def is_valid_audio_file(self, file_path):
+        allowed_mime_types = [
+            'audio/wav', 'audio/x-wav', 'audio/mpeg',
+            'audio/flac', 'audio/x-flac', 'audio/mp4'
+        ]
+        mime_type = magic.from_file(file_path, mime=True)
+        is_valid = mime_type in allowed_mime_types
+        logging.info(f"Checked MIME type: {mime_type}, Valid: {is_valid}")
+        return is_valid
 
     def convert_to_wav(self, file_path):
+        # Validate file type before processing
+        if not self.is_valid_audio_file(file_path):
+            logging.error(f"Invalid file type attempted: {file_path}")
+            raise ValueError("Invalid or unsupported audio file type.")
+
         ext = os.path.splitext(file_path)[1].lower()
         if ext == ".wav":
+            logging.info(f"File already in WAV format: {file_path}")
             return file_path
 
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            audio = AudioSegment.from_file(file_path)
-            audio = audio.set_channels(1)
-            audio.export(tmp.name, format="wav")
-            return tmp.name
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        logging.info(f"Converting file to WAV: {file_path} -> {tmp.name}")
+        audio = AudioSegment.from_file(file_path)
+        audio.export(tmp.name, format="wav")
+        return tmp.name
 
-    def reduce_noise(self, data, sr):
-        if len(data) < sr * 2:
-            return data
-        return nr.reduce_noise(y=data, sr=sr)
-
-    def get_audio_data(self, file_path):
-        data, sr = sf.read(file_path)
-        if data.ndim == 2:
-            data = np.mean(data, axis=1)
-        return data, sr
-
-    def transcribe(self, file_path, apply_noise=True):
-        logging.info(f"Starting transcription for: {file_path}")
-        wav_path = self.convert_to_wav(file_path)
-        logging.info(f"Converted to WAV: {wav_path}")
-        data, sr = self.get_audio_data(wav_path)
-        temp_file_created = False
-
-        if apply_noise:
-            logging.info("Applying noise reduction...")
-            data = self.reduce_noise(data, sr)
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_wav:
-                sf.write(tmp_wav.name, data, sr, format='WAV')
-                wav_path = tmp_wav.name
-                temp_file_created = True
-                logging.info(f"Noise-reduced audio written to temp file: {wav_path}")
-
-        try:
-            model_type = "tiny" if os.path.getsize(file_path) < 1 * 1024 * 1024 else "small"
-            logging.info(f"Using Whisper model: {model_type}")
-            model = self.model_tiny if model_type == "tiny" else self.model_small
-
-            transcription = model.transcribe(wav_path, language="en")
-            logging.info("Transcription complete.")
-            return transcription["text"]
-        except Exception as e:
-            logging.error(f"Transcription failed: {e}")
-            raise
-        finally:
-            if temp_file_created and os.path.exists(wav_path):
-                os.remove(wav_path)
-                logging.info(f"Deleted temporary file: {wav_path}")
 
 
 class TranscriptionThread(QThread):
