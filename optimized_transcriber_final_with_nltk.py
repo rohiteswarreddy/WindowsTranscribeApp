@@ -95,13 +95,28 @@ class TranscriptionThread(QThread):
         self.processor = processor
         self.file_path = file_path
         self.apply_noise = apply_noise
+        self._running = True  # ✅ Control flag for thread cancellation
 
     def run(self):
         try:
+            if not self._running:
+                logging.info("Transcription aborted before start.")
+                return
+
             text = self.processor.transcribe(self.file_path, self.apply_noise)
+
+            if not self._running:
+                logging.info("Transcription aborted after processing.")
+                return
+
             self.finished.emit(text)
         except Exception as e:
             self.error.emit(str(e))
+
+    def stop(self):
+        logging.info("Transcription stop requested.")
+        self._running = False
+
 
 
 class MainWindow(QMainWindow):
