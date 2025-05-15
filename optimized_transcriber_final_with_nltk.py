@@ -84,8 +84,15 @@ class AudioProcessor:
 
     try:
         logging.info(f"Converting file to WAV: {file_path} -> {tmp_path}")
-        audio = AudioSegment.from_file(file_path)
-        audio.export(tmp_path, format="wav")
+       try:
+         audio = AudioSegment.from_file(file_path)
+         audio.export(tmp_path, format="wav")
+       except Exception as e:
+           logging.error(f"Audio conversion failed: {e}")
+           if os.path.exists(tmp_path):
+               os.remove(tmp_path)
+           raise
+
         return tmp_path
     except Exception as e:
         logging.error(f"Error converting file: {e}")
@@ -120,6 +127,7 @@ class TranscriptionThread(QThread):
 
             self.finished.emit(text)
         except Exception as e:
+            logging.error(f"Error during transcription: {e}")
             self.error.emit(str(e))
 
     def stop(self):
@@ -213,6 +221,9 @@ class MainWindow(QMainWindow):
         file_path = selected_items[0].text()
         self.transcribe_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
+        self.save_btn.setEnabled(False)
+        self.summarize_btn.setEnabled(False)
+        self.file_list.setEnabled(False)
         self.thread = TranscriptionThread(self.processor, file_path, self.noise_checkbox.isChecked())
         self.thread.finished.connect(self.display_transcription)
         self.thread.error.connect(self.display_error)
@@ -223,11 +234,14 @@ class MainWindow(QMainWindow):
         self.summarize_btn.setEnabled(True)
         self.transcribe_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+        self.save_btn.setEnabled(True)
+        self.file_list.setEnabled(True)
 
     def display_error(self, error_msg):
         self.transcription_output.setText(f"Error: {error_msg}")
         self.transcribe_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
+        self.file_list.setEnabled(True)
 
     def summarize_text(self):
         raw_text = self.transcription_output.toPlainText()
