@@ -69,9 +69,9 @@ class AudioProcessor:
 
     def convert_to_wav(self, file_path):
     # Validate file type before processing
-        if not self.is_valid_audio_file(file_path):
-            logging.error(f"Invalid file type attempted: {file_path}")
-            raise ValueError("Invalid or unsupported audio file type.")
+                if not self.is_valid_audio_file(file_path):
+                    logging.error(f"Invalid file type attempted: {file_path}")
+                    raise ValueError("Invalid or unsupported audio file type.")
 
     ext = os.path.splitext(file_path)[1].lower()
     if ext == ".wav":
@@ -221,7 +221,8 @@ class MainWindow(QMainWindow):
         file_path = selected_items[0].text()
         self.transcribe_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
-        self.save_btn.setEnabled(False)
+        self.save_transcript_btn.setEnabled(False)
+        self.save_summary_btn.setEnabled(False)
         self.summarize_btn.setEnabled(False)
         self.file_list.setEnabled(False)
         self.thread = TranscriptionThread(self.processor, file_path, self.noise_checkbox.isChecked())
@@ -234,7 +235,8 @@ class MainWindow(QMainWindow):
         self.summarize_btn.setEnabled(True)
         self.transcribe_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
-        self.save_btn.setEnabled(True)
+        self.save_transcript_btn.setEnabled(True)
+        self.save_summary_btn.setEnabled(True)
         self.file_list.setEnabled(True)
 
     def display_error(self, error_msg):
