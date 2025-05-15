@@ -235,9 +235,39 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.summary_output.setPlainText(f"Summary failed: {e}")
 
-    def save_transcript(self):
-        text = self.transcription_output.toPlainText()
-        self.save_text_to_file(text, "Save Transcript")
+   def save_transcript(self):
+    file_path, _ = QFileDialog.getSaveFileName(self, "Save Transcript", "transcription.txt", "Text Files (*.txt)")
+    if file_path:
+        if os.path.exists(file_path):
+            reply = QMessageBox.question(
+                self,
+                "Overwrite File?",
+                f"The file '{os.path.basename(file_path)}' already exists. Do you want to overwrite it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                logging.info("User canceled file overwrite.")
+                return
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(self.transcription_output.toPlainText())
+
+        summary = self.summary_output.toPlainText().strip()
+        if summary:
+            summary_path = file_path.replace(".txt", "_summary.txt")
+            if os.path.exists(summary_path):
+                reply = QMessageBox.question(
+                    self,
+                    "Overwrite Summary?",
+                    f"The file '{os.path.basename(summary_path)}' already exists. Do you want to overwrite it?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    logging.info("User canceled summary overwrite.")
+                    return
+            with open(summary_path, "w", encoding="utf-8") as f:
+                f.write(summary)
+
 
     def save_summary(self):
         text = self.summary_output.toPlainText()
