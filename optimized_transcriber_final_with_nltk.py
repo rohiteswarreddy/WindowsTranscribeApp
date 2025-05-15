@@ -16,12 +16,17 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.text_rank import TextRankSummarizer
-import nltk
-import magic
 
-nltk.download("punkt")
-nltk.download('punkt_tab')
- 
+import magic
+import nltk  
+
+try:
+    nltk.data.find("tokenizers/punkt")
+    logging.info("NLTK 'punkt' tokenizer found.")
+except LookupError:
+    logging.warning("NLTK 'punkt' tokenizer not found. Please install it manually using nltk.download('punkt') before running this application.")
+    raise RuntimeError("Missing NLTK data. Run: import nltk; nltk.download('punkt')")
+
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
