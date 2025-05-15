@@ -1,4 +1,3 @@
-
 import os
 import sys
 import tempfile
@@ -69,37 +68,50 @@ class AudioProcessor:
 
     def convert_to_wav(self, file_path):
     # Validate file type before processing
-                if not self.is_valid_audio_file(file_path):
-                    logging.error(f"Invalid file type attempted: {file_path}")
-                    raise ValueError("Invalid or unsupported audio file type.")
+        if not self.is_valid_audio_file(file_path):
+            logging.error(f"Invalid file type attempted: {file_path}")
+            raise ValueError("Invalid or unsupported audio file type.")
 
-    ext = os.path.splitext(file_path)[1].lower()
-    if ext == ".wav":
-        logging.info(f"File already in WAV format: {file_path}")
-        return file_path
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext == ".wav":
+            logging.info(f"File already in WAV format: {file_path}")
+            return file_path
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    tmp_path = tmp.name
-    tmp.close()  # Ensure the file is closed before writing
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        tmp_path = tmp.name
+        tmp.close()  # Ensure the file is closed before writing
 
-    try:
-        logging.info(f"Converting file to WAV: {file_path} -> {tmp_path}")
-       try:
-         audio = AudioSegment.from_file(file_path)
-         audio.export(tmp_path, format="wav")
-       except Exception as e:
-           logging.error(f"Audio conversion failed: {e}")
-           if os.path.exists(tmp_path):
-               os.remove(tmp_path)
-           raise
+        try:
+            logging.info(f"Converting file to WAV: {file_path} -> {tmp_path}")
+            
+            try:
+                audio = AudioSegment.from_file(file_path)
+                audio.export(tmp_path, format="wav")
+            except Exception as e:
+                logging.error(f"Audio conversion failed: {e}")
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+                raise
 
-        return tmp_path
-    except Exception as e:
-        logging.error(f"Error converting file: {e}")
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise
+            return tmp_path
+        except Exception as e:
+            logging.error(f"Error converting file: {e}")
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise
+    def transcribe(self, file_path, apply_noise=True, language="en"):
+        wav_path = self.convert_to_wav(file_path)
 
+        if apply_noise:
+            data, sr = sf.read(wav_path)
+            if data.ndim == 2:
+                data = np.mean(data, axis=1)
+            data = nr.reduce_noise(y=data, sr=sr)
+            sf.write(wav_path, data, sr)
+
+        logging.info("Starting Whisper transcription...")
+        result = self.model.transcribe(wav_path, language=language)
+        return result["text"]
 
 
 class TranscriptionThread(QThread):
@@ -219,7 +231,6 @@ class MainWindow(QMainWindow):
         if not selected_items:
             return
         file_path = selected_items[0].text()
-        self.transcribe_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.save_transcript_btn.setEnabled(False)
         self.save_summary_btn.setEnabled(False)
@@ -233,7 +244,6 @@ class MainWindow(QMainWindow):
     def display_transcription(self, text):
         self.transcription_output.setText(text)
         self.summarize_btn.setEnabled(True)
-        self.transcribe_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.save_transcript_btn.setEnabled(True)
         self.save_summary_btn.setEnabled(True)
@@ -241,9 +251,9 @@ class MainWindow(QMainWindow):
 
     def display_error(self, error_msg):
         self.transcription_output.setText(f"Error: {error_msg}")
-        self.transcribe_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.file_list.setEnabled(True)
+        
 
     def summarize_text(self):
         raw_text = self.transcription_output.toPlainText()
@@ -260,38 +270,38 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.summary_output.setPlainText(f"Summary failed: {e}")
 
-   def save_transcript(self):
-    file_path, _ = QFileDialog.getSaveFileName(self, "Save Transcript", "transcription.txt", "Text Files (*.txt)")
-    if file_path:
-        if os.path.exists(file_path):
-            reply = QMessageBox.question(
-                self,
-                "Overwrite File?",
-                f"The file '{os.path.basename(file_path)}' already exists. Do you want to overwrite it?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                logging.info("User canceled file overwrite.")
-                return
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(self.transcription_output.toPlainText())
-
-        summary = self.summary_output.toPlainText().strip()
-        if summary:
-            summary_path = file_path.replace(".txt", "_summary.txt")
-            if os.path.exists(summary_path):
+    def save_transcript(self):
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Transcript", "transcription.txt", "Text Files (*.txt)")
+        if file_path:
+            if os.path.exists(file_path):
                 reply = QMessageBox.question(
                     self,
-                    "Overwrite Summary?",
-                    f"The file '{os.path.basename(summary_path)}' already exists. Do you want to overwrite it?",
+                    "Overwrite File?",
+                    f"The file '{os.path.basename(file_path)}' already exists. Do you want to overwrite it?",
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                 )
                 if reply != QMessageBox.StandardButton.Yes:
-                    logging.info("User canceled summary overwrite.")
+                    logging.info("User canceled file overwrite.")
                     return
-            with open(summary_path, "w", encoding="utf-8") as f:
-                f.write(summary)
+
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(self.transcription_output.toPlainText())
+
+            summary = self.summary_output.toPlainText().strip()
+            if summary:
+                summary_path = file_path.replace(".txt", "_summary.txt")
+                if os.path.exists(summary_path):
+                    reply = QMessageBox.question(
+                        self,
+                        "Overwrite Summary?",
+                        f"The file '{os.path.basename(summary_path)}' already exists. Do you want to overwrite it?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+                    if reply != QMessageBox.StandardButton.Yes:
+                        logging.info("User canceled summary overwrite.")
+                        return
+                with open(summary_path, "w", encoding="utf-8") as f:
+                    f.write(summary)
 
 
     def save_summary(self):
