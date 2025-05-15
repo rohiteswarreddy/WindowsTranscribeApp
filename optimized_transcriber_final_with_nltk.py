@@ -54,21 +54,30 @@ class AudioProcessor:
         return is_valid
 
     def convert_to_wav(self, file_path):
-        # Validate file type before processing
-        if not self.is_valid_audio_file(file_path):
-            logging.error(f"Invalid file type attempted: {file_path}")
-            raise ValueError("Invalid or unsupported audio file type.")
+    # Validate file type before processing
+    if not self.is_valid_audio_file(file_path):
+        logging.error(f"Invalid file type attempted: {file_path}")
+        raise ValueError("Invalid or unsupported audio file type.")
 
-        ext = os.path.splitext(file_path)[1].lower()
-        if ext == ".wav":
-            logging.info(f"File already in WAV format: {file_path}")
-            return file_path
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext == ".wav":
+        logging.info(f"File already in WAV format: {file_path}")
+        return file_path
 
-        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-        logging.info(f"Converting file to WAV: {file_path} -> {tmp.name}")
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp_path = tmp.name
+    tmp.close()  # Ensure the file is closed before writing
+
+    try:
+        logging.info(f"Converting file to WAV: {file_path} -> {tmp_path}")
         audio = AudioSegment.from_file(file_path)
-        audio.export(tmp.name, format="wav")
-        return tmp.name
+        audio.export(tmp_path, format="wav")
+        return tmp_path
+    except Exception as e:
+        logging.error(f"Error converting file: {e}")
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
 
 
 
