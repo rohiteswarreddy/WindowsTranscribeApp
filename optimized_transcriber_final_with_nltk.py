@@ -7,6 +7,7 @@ import numpy as np
 import whisper
 import noisereduce as nr
 import soundfile as sf
+from logging.handlers import RotatingFileHandler
 from pydub import AudioSegment
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QListWidget, QTextEdit, QPushButton, QLabel,
@@ -29,7 +30,15 @@ except LookupError:
 
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+log_file = "transcriber.log"
+log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+file_handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3)
+file_handler.setFormatter(log_formatter)
+
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[file_handler]
+)
 
 
 class QtSignalLogHandler(logging.Handler, QObject):
