@@ -69,9 +69,9 @@ class AudioProcessor:
 
     def convert_to_wav(self, file_path):
     # Validate file type before processing
-    if not self.is_valid_audio_file(file_path):
-        logging.error(f"Invalid file type attempted: {file_path}")
-        raise ValueError("Invalid or unsupported audio file type.")
+        if not self.is_valid_audio_file(file_path):
+            logging.error(f"Invalid file type attempted: {file_path}")
+            raise ValueError("Invalid or unsupported audio file type.")
 
     ext = os.path.splitext(file_path)[1].lower()
     if ext == ".wav":
