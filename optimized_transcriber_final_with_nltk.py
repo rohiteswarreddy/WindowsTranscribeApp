@@ -34,6 +34,9 @@ log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 file_handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3)
 file_handler.setFormatter(log_formatter)
 
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
 logging.basicConfig(
     level=logging.INFO,
     handlers=[file_handler]
